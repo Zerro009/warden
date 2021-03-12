@@ -21,7 +21,7 @@ typedef long long int_64;
 #endif
 
 struct bigint {
-	uint_64 *digits;
+	int_64 *digits;
 	uint_32 size;
 	uchar sign:1;
 };
@@ -85,6 +85,38 @@ void bigint_print(struct bigint *bignumber) {
 	printf("\n");
 }
 
+int bigint_equal_abs(const struct bigint *left, const struct bigint *right) {
+	if (left->size == right->size) {
+		for (int i = 0; i < left->size; i++) {
+			if (left->digits[i] != right->digits[i]) {
+				return 0;
+			}
+		}
+	} else {
+		int lesser_size = (left->size < right->size) ? left->size : right->size;
+		const struct bigint *P = (left->size > right->size) ? left : right;
+		for (int i = 0; i < lesser_size; i++) {
+			if (left->digits[i] != right->digits[i]) {
+				return 0;
+			}
+		}
+		for (int i = lesser_size; i < P->size; i++) {
+			if (P->digits[i] != 0) {
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
+int bigint_equal(const struct bigint *left, const struct bigint *right) {
+	if (left->sign != right->sign) {
+		return 0;
+	} else {
+		return bigint_equal_abs(left, right);
+	}
+}
+
 struct bigint *bigint_addition(struct bigint *left, struct bigint *right) {
 	if (left->size < right->size) {
 		return bigint_addition(right, left);
@@ -115,12 +147,11 @@ struct bigint *bigint_addition(struct bigint *left, struct bigint *right) {
 }
 
 int main(int argc, char *argv[]) {
-	struct bigint *X = bigint_construct_from_uint(1234);
-	struct bigint *Y = bigint_construct_from_uint(1234);
-	struct bigint *Z = bigint_addition(X, Y);
+	struct bigint *X = bigint_construct_from_uint(1234567891);
+	struct bigint *Y = bigint_construct_from_uint(1234567891);
 	bigint_print(X);
 	bigint_print(Y);
-	bigint_print(Z);
-	printf("%d\n", Z->size);
+	printf("%d\n%d\n", X->sign, Y->sign);
+	printf("%d\n", bigint_equal_abs(X,Y));
 	return 0;
 }
