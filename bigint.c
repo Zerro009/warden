@@ -315,10 +315,27 @@ struct bigint *bigint_multiplication(struct bigint *left, struct bigint *right) 
 	return result;
 }
 
+struct bigint *bigint_power_int(struct bigint *base, int number) {
+	if (number == 0) {
+		return base;
+	} else if (number == 1) {
+		return bigint_construct_from_int(0);
+	} else {
+		struct bigint *result = bigint_copy(base);
+	
+		for (int i = 0; i < number - 1; i++) {
+			result = bigint_multiplication(result, base);
+			bigint_allocation_normalize(result);
+		}
+	return result;
+	}
+	return NULL;
+}
+
 int main(int argc, char *argv[]) {
-	struct bigint *X = bigint_construct_from_int(999999999999999999);
+	struct bigint *X = bigint_construct_from_int(999999999);
 	struct bigint *Y = bigint_construct_from_int(999999999999999999);
-	struct bigint *Z = bigint_multiplication(X,Y);
+	struct bigint *Z = bigint_power_int(X,5000);
 	bigint_print(X);
 	bigint_print(Y);
 	bigint_print(Z);
