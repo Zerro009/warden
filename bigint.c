@@ -27,7 +27,7 @@ struct bigint {
 };
 
 struct bigint *bigint_construct(int digits) {
-	int size = digits / 9 + ((digits % 9 != 0) ? 1 : 0);
+	int size = digits;
 	if (size <= 0) {
 		return NULL;
 	}
@@ -42,12 +42,13 @@ struct bigint *bigint_construct(int digits) {
 		return NULL;
 	}
 	memset(result->digits, 0, size * sizeof(int_64));
+	for (int i = 0; i < size; i++) result->digits[i] = 0;
 	result->sign = 0;
 	return result;
 }
 
 struct bigint *bigint_construct_from_int(int_64 number) {
-	struct bigint *result = bigint_construct(18);
+	struct bigint *result = bigint_construct(2);
 
 	if (result == NULL) {
 		return NULL;
@@ -75,6 +76,29 @@ void bigint_destruct(struct bigint *bignumber) {
 	free(bignumber);
 }
 
+struct bigint *bigint_copy(struct bigint *source) {
+	struct bigint *result = (struct bigint*) malloc(sizeof(struct bigint));
+	
+	result->digits = (int_64 *) malloc(source->size * sizeof(int_64));
+	result->size = source->size;
+	result->sign = source->sign;
+
+	for (int i = 0; i < source->size; i++) {
+		result->digits[i] = source->digits[i];
+	}
+	return result;
+}
+
+void bigint_allocation_normalize(struct bigint *bignumber) {
+	int garbage = 0;
+	for (int i = bignumber->size - 1; i >= 0 && bignumber->digits[i] == 0; i--, garbage++)
+		{}
+	if (garbage) {
+		bignumber->size -= garbage;
+		bignumber = bigint_copy(bignumber);
+	}
+}
+
 void bigint_print(struct bigint *bignumber) {
 	if (bignumber->sign == 1) {
 		printf("-");
@@ -93,23 +117,19 @@ void bigint_swap_sign(struct bigint *bignumber) {
 	bignumber->sign = bignumber->sign ^ 1;
 }
 
-struct bigint * bigint_copy(struct bigint *source) {
-	struct bigint *result = (struct bigint*) malloc(sizeof(struct bigint));
-	
-	result->digits = (int_64 *) malloc(source->size * sizeof(int_64));
-	result->size = source->size;
-	result->sign = source->sign;
-
-	for (int i = 0; i < source->size; i++) {
-		result->digits[i] = source->digits[i];
-	}
-	return result;
-}
-
 struct bigint *bigint_abs(struct bigint *bignumber) {
 	struct bigint *result = bigint_copy(bignumber);
 	result->sign = 0;
 	return result;
+}
+
+int bigint_is_zero(struct bigint *bignumber) {
+	for (int i = 0; i < bignumber->size; i++) {
+		if (bignumber->digits[i] != 0) {
+			return 0;
+		}
+	}
+	return 1;
 }
 
 int bigint_equal(struct bigint *left, struct bigint *right) {
@@ -180,7 +200,10 @@ struct bigint *bigint_addition(struct bigint *left, struct bigint *right) {
 
 		struct bigint *result = bigint_addition(p_left, p_right);
 		bigint_swap_sign(result);
+
+		bigint_allocation_normalize(result);
 		return result;
+
 	} else if (left->sign == 0 && right->sign == 0) {
 		int carry = 0;
 		int bigger_size = (left->size >= right->size) ? left->size : right->size;
@@ -208,9 +231,15 @@ struct bigint *bigint_addition(struct bigint *left, struct bigint *right) {
 			result->digits = copy;
 			result->size++;
 		}
+
+		bigint_allocation_normalize(result);
 		return result;
+
 	} else if (left->sign == 1 && right->sign == 0) {
-		return bigint_addition(right, left);
+		struct bigint *result = bigint_addition(right, left);
+		bigint_allocation_normalize(result);
+		return result;
+
 	} else if (left->sign == 0 && right->sign == 1) {
 		if (!(bigint_greater(left, right)) && !(bigint_equal(left, right))) {
 			struct bigint *p_left = bigint_copy(left);
@@ -221,6 +250,7 @@ struct bigint *bigint_addition(struct bigint *left, struct bigint *right) {
 
 			struct bigint *result = bigint_addition(right, left);
 			bigint_swap_sign(result);
+			bigint_allocation_normalize(result);
 			return result;
 		}
 		struct bigint *result = bigint_copy(left);
@@ -239,15 +269,56 @@ struct bigint *bigint_addition(struct bigint *left, struct bigint *right) {
 				result->digits[i+1]--;
 			}
 		}
+		bigint_allocation_normalize(result);
 		return result;
 	}
 	return NULL;
 }
 
+struct bigint *bigint_subtraction(struct bigint *left, struct bigint *right) {
+	struct bigint *p_right = bigint_copy(right);
+	bigint_swap_sign(p_right);
+	return bigint_addition(left, p_right);
+}
+
+struct bigint *bigint_multiplication(struct bigint *left, struct bigint *right) {
+	if (bigint_is_zero(left) || bigint_is_zero(right)) {
+		return bigint_construct_from_int(0);
+	}
+	
+	int size = (left->size * right->size) + 1;
+	struct bigint *result = bigint_construct(size);
+	result->size = size;
+	result->digits = (int_64 *) malloc(size * sizeof(int_64));
+
+	if (left->sign != right->sign) {
+		result->sign = 1;
+	}
+
+	for (int i = 0; i < left->size; i++) {
+		for (int j = 0; j < right->size; j++) {
+			int_64 temp = result->digits[i+j];
+			temp += 1 * left->digits[i] * right->digits[j];
+			result->digits[i+j] = temp % BIGINT_BASE;
+			temp /= BIGINT_BASE;
+			result->digits[i + j + 1] += temp;
+		}
+	}
+
+	for (int i = 0; i < result->size; i++) {
+		if (result->digits[i] > BIGINT_BASE) {
+			result->digits[i + 1] += result->digits[i] / BIGINT_BASE;
+			result->digits[i] %= BIGINT_BASE;
+		}
+	}
+	bigint_allocation_normalize(result);
+	return result;
+}
+
 int main(int argc, char *argv[]) {
-	struct bigint *X = bigint_construct_from_int(1234567891);
-	struct bigint *Y = bigint_construct_from_int(-1000000000);
-	struct bigint *Z = bigint_addition(X,Y);
+	struct bigint *X = bigint_construct_from_int(999999999999999999);
+	struct bigint *Y = bigint_construct_from_int(999999999999999999);
+	struct bigint *Z = bigint_multiplication(X,Y);
 	bigint_print(X);
 	bigint_print(Y);
 	bigint_print(Z);
