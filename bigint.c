@@ -76,6 +76,15 @@ void bigint_destruct(struct bigint *bignumber) {
 	free(bignumber);
 }
 
+void bigint_resize(struct bigint *bignumber, int size) {
+	bignumber->size = size;
+
+	bignumber->digits = (int_64 *) malloc(size * sizeof(int_64));
+	for (int i = 0; i < size; i++) {
+		bignumber->digits[i] = 0;
+	}
+}
+
 struct bigint *bigint_copy(struct bigint *source) {
 	struct bigint *result = (struct bigint*) malloc(sizeof(struct bigint));
 	
@@ -91,7 +100,7 @@ struct bigint *bigint_copy(struct bigint *source) {
 
 void bigint_allocation_normalize(struct bigint *bignumber) {
 	int garbage = 0;
-	for (int i = bignumber->size - 1; i >= 0 && bignumber->digits[i] == 0; i--, garbage++)
+	for (int i = bignumber->size - 1; i > 0 && bignumber->digits[i] == 0; i--, garbage++)
 		{}
 	if (garbage) {
 		bignumber->size -= garbage;
@@ -275,6 +284,10 @@ struct bigint *bigint_addition(struct bigint *left, struct bigint *right) {
 	return NULL;
 }
 
+struct bigint *bigint_addition_int(struct bigint *bignumber, int_64 number) {
+	return bigint_addition(bignumber, bigint_construct_from_int(number));
+}
+
 struct bigint *bigint_subtraction(struct bigint *left, struct bigint *right) {
 	struct bigint *p_right = bigint_copy(right);
 	bigint_swap_sign(p_right);
@@ -315,6 +328,10 @@ struct bigint *bigint_multiplication(struct bigint *left, struct bigint *right) 
 	return result;
 }
 
+struct bigint *bigint_multiplication_int(struct bigint *bignumber, int_64 number) {
+	return bigint_multiplication(bignumber, bigint_construct_from_int(number));
+}
+
 struct bigint *bigint_power_int(struct bigint *base, int number) {
 	if (number == 0) {
 		return base;
@@ -332,10 +349,82 @@ struct bigint *bigint_power_int(struct bigint *base, int number) {
 	return NULL;
 }
 
+struct bigint *bigint_division_int(struct bigint *bignumber, int_64 number) {
+	struct bigint *result = bigint_copy(bignumber);
+	int value = number;
+
+	if (value < 0) {
+		bigint_swap_sign(result);
+		value = -value;
+	}
+
+	int_64 carry = 0;
+	for (int i = result->size - 1; i >= 0; i--) {
+		carry *= BIGINT_BASE;
+		carry += result->digits[i];
+		result->digits[i] = carry / value;
+		carry %= value;
+	}
+
+	bigint_allocation_normalize(result);
+	return result;
+}
+
+struct bigint *bigint_division_modulo(struct bigint *left, struct bigint *right, uchar mode) {
+	int norm = BIGINT_BASE / (right->digits[right->size - 1] + 1);
+	struct bigint *X_left = bigint_multiplication_int(bigint_abs(left), norm);
+	struct bigint *X_right = bigint_multiplication_int(bigint_abs(right), norm);
+
+	struct bigint *q = bigint_construct(1);
+	struct bigint *r = bigint_construct(1);
+
+	q->sign = 0;
+	bigint_resize(q, left->size);
+
+	for (int i = X_left->size - 1; i >= 0; i--) {
+		r = bigint_multiplication_int(r, BIGINT_BASE);
+		r = bigint_addition_int(r, X_left->digits[i]);
+
+		int s1 = r->size <= X_right->size ? 0 : r->digits[X_right->size];
+		int s2 = r->size <= X_right->size - 1 ? 0 : r->digits[X_right->size - 1];
+		int d = (1 * BIGINT_BASE * s1 + s2) / X_right->digits[X_right->size-1];
+
+		r = bigint_subtraction(r, bigint_multiplication_int(X_right, d));
+		while (r->sign == 1) {
+			r = bigint_addition(r, X_right);
+			d--;
+		}
+		q->digits[i] = d;
+	}
+
+	q->sign = X_left->sign ^ X_right->sign;
+	r->sign = X_left->sign;
+
+	bigint_allocation_normalize(q);
+	bigint_allocation_normalize(r);
+
+	if (mode == 0) {
+		return q;
+	} else if (mode == 1) {
+		return bigint_division_int(r, norm);
+	} else {
+		return NULL;
+	}
+	return NULL;
+}
+
+struct bigint *bigint_division(struct bigint *left, struct bigint *right) {
+	return bigint_division_modulo(left, right, 0);
+}
+
+struct bigint *bigint_modulo(struct bigint *left, struct bigint *right) {
+	return bigint_division_modulo(left, right, 1);
+}
+
 int main(int argc, char *argv[]) {
 	struct bigint *X = bigint_construct_from_int(999999999);
-	struct bigint *Y = bigint_construct_from_int(999999999999999999);
-	struct bigint *Z = bigint_power_int(X,5000);
+	struct bigint *Y = bigint_construct_from_int(3);
+	struct bigint *Z = bigint_division(X, Y);
 	bigint_print(X);
 	bigint_print(Y);
 	bigint_print(Z);
