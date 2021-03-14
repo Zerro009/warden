@@ -334,9 +334,9 @@ struct bigint *bigint_multiplication_int(struct bigint *bignumber, int_64 number
 
 struct bigint *bigint_power_int(struct bigint *base, int number) {
 	if (number == 0) {
-		return base;
+		return bigint_construct_from_int(1);
 	} else if (number == 1) {
-		return bigint_construct_from_int(0);
+		return base;
 	} else {
 		struct bigint *result = bigint_copy(base);
 	
@@ -423,10 +423,7 @@ struct bigint *bigint_modulo(struct bigint *left, struct bigint *right) {
 
 int main(int argc, char *argv[]) {
 	struct bigint *X = bigint_construct_from_int(999999999);
-	struct bigint *Y = bigint_construct_from_int(3);
-	struct bigint *Z = bigint_division(X, Y);
-	bigint_print(X);
-	bigint_print(Y);
+	struct bigint *Z = bigint_power_int(X, 1000);
 	bigint_print(Z);
 	return 0;
 }
