@@ -2,32 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BIGINT_BASE 1000000000
+#include "bigint.h"
 
-#ifndef uchar
-typedef unsigned char uchar;
-#endif
-
-#ifndef uint_32
-typedef unsigned int uint_32;
-#endif
-
-#ifndef uint_64
-typedef unsigned long long uint_64;
-#endif
-
-#ifndef int_64
-typedef long long int_64;
-#endif
-
-struct bigint {
-	int_64 *digits;
-	uint_32 size;
-	uchar sign;
-};
-
-struct bigint *bigint_construct(int digits) {
-	int size = digits;
+struct bigint *bigint_construct(int size) {
 	if (size <= 0) {
 		return NULL;
 	}
@@ -332,7 +309,7 @@ struct bigint *bigint_multiplication_int(struct bigint *bignumber, int_64 number
 	return bigint_multiplication(bignumber, bigint_construct_from_int(number));
 }
 
-struct bigint *bigint_power_int(struct bigint *base, int number) {
+struct bigint *bigint_power_int(struct bigint *base, int_64 number) {
 	if (number == 0) {
 		return bigint_construct_from_int(1);
 	} else if (number == 1) {
@@ -419,11 +396,4 @@ struct bigint *bigint_division(struct bigint *left, struct bigint *right) {
 
 struct bigint *bigint_modulo(struct bigint *left, struct bigint *right) {
 	return bigint_division_modulo(left, right, 1);
-}
-
-int main(int argc, char *argv[]) {
-	struct bigint *X = bigint_construct_from_int(999999999);
-	struct bigint *Z = bigint_power_int(X, 1000);
-	bigint_print(Z);
-	return 0;
 }
