@@ -89,8 +89,8 @@ void bigint_print(struct bigint *bignumber) {
 	if (bignumber->sign == 1) {
 		printf("-");
 	}
-	for (int i = 0; i < bignumber->size; i++) {
-		if (i == bignumber->size - 1) {
+	for (int i = bignumber->size - 1; i >= 0; i--) {
+		if (i == 0) {
 			printf("%0.9llu", bignumber->digits[i]);
 		} else {
 			printf("%0.9llu.", bignumber->digits[i]);
@@ -348,6 +348,10 @@ struct bigint *bigint_division_int(struct bigint *bignumber, int_64 number) {
 }
 
 struct bigint *bigint_division_modulo(struct bigint *left, struct bigint *right, uchar mode) {
+	if (bigint_is_zero(right)) {
+		return NULL;
+	}
+
 	int norm = BIGINT_BASE / (right->digits[right->size - 1] + 1);
 	struct bigint *X_left = bigint_multiplication_int(bigint_abs(left), norm);
 	struct bigint *X_right = bigint_multiplication_int(bigint_abs(right), norm);
